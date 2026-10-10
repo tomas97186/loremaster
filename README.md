@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Loremaster
 
-## Getting Started
+Campaign manager e assistente AI per il Dungeon Master: campagne, luoghi, NPC,
+personaggi, fazioni, quest, oggetti, sessioni e note, tutto in un'unica app
+web utilizzabile da qualsiasi dispositivo della rete locale.
 
-First, run the development server:
+## Stack
+
+- [Next.js 16](https://nextjs.org) (App Router, TypeScript, Tailwind v4)
+- PostgreSQL 16 (container) — dati, utenti e sessioni di login
+- Immagini caricate su un volume Docker (`/data/uploads`)
+- Gemini API (free tier, default) / Claude API (opzionale) per l'assistente AI
+
+## Avvio con Docker
+
+1. Copia `.env.example` in `.env` e imposta almeno `POSTGRES_PASSWORD`
+   (e `GEMINI_API_KEY` se vuoi l'assistente AI).
+2. Avvia:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. Apri `http://<ip-del-computer>:3000` da qualsiasi dispositivo della rete
+   locale e crea il tuo account dalla schermata di login.
+
+Al primo avvio l'app crea da sola le tabelle (`db/migrations`). I dati vivono
+nei volumi `pgdata` (database) e `uploads` (immagini): sopravvivono a
+`docker compose down` e agli aggiornamenti. Per fare un backup:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose exec db pg_dump -U loremaster loremaster > backup.sql
+docker run --rm -v loremaster_uploads:/data -v "$PWD":/out alpine tar czf /out/uploads.tgz -C /data .
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> Il servizio gira in HTTP sulla rete locale. Se lo metti dietro HTTPS
+> imposta `COOKIE_SECURE=true`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Sviluppo locale
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Serve un Postgres raggiungibile (per esempio `docker compose up -d db` dopo
+aver pubblicato la porta 5432, oppure un'istanza locale). In `.env.local`:
 
-## Learn More
+```
+DATABASE_URL=postgres://loremaster:<password>@localhost:5432/loremaster
+UPLOAD_DIR=./data/uploads
+GEMINI_API_KEY=...
+```
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Per aprire l'app in dev da un altro dispositivo, l'IP deve rientrare in
+`allowedDevOrigins` di `next.config.ts` (con Docker non serve).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Struttura
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+app/                 Route Next.js (auth, app, API upload/file)
+components/          Componenti UI condivisi
+lib/db/              Accesso ai dati (pg), auth a sessioni, migrazioni
+lib/ai/              Provider AI
+db/migrations/       Schema SQL, applicato all'avvio
+```

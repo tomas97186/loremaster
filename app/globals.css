@@ -1,26 +1,72 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: #faf6ef;
+  --color-surface: #ffffff;
+  --color-surface-2: #f3ece0;
+  --color-border: #e5d9c7;
+  --color-border-strong: #d7c6ac;
+  --color-text: #241d17;
+  --color-text-muted: #6e6254;
+  --color-accent: #7c2d2d;
+  --color-accent-strong: #5c2020;
+  --color-accent-soft: #f4e1de;
+  --color-gold: #96721f;
+  --color-gold-soft: #f1e5c4;
+  --color-danger: #b3261e;
+  --color-success: #2f6f4e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-bg: #181310;
+    --color-surface: #211a15;
+    --color-surface-2: #2a2119;
+    --color-border: #3c3025;
+    --color-border-strong: #4c3c2c;
+    --color-text: #f1e8db;
+    --color-text-muted: #b7a894;
+    --color-accent: #e08b7d;
+    --color-accent-strong: #f0a496;
+    --color-accent-soft: #3a221f;
+    --color-gold: #d8b45a;
+    --color-gold-soft: #3a2f18;
+    --color-danger: #e5786f;
+    --color-success: #6fbf94;
   }
 }
 
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-accent: var(--color-accent);
+  --color-accent-strong: var(--color-accent-strong);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-gold: var(--color-gold);
+  --color-gold-soft: var(--color-gold-soft);
+  --color-danger: var(--color-danger);
+  --color-success: var(--color-success);
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-source-sans);
+  --font-mono: var(--font-plex-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display), Georgia, serif;
+  text-wrap: balance;
+}
+
+::selection {
+  background: var(--color-accent-soft);
 }
