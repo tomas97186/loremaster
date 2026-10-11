@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/db/client";
 import { signOut } from "../../(auth)/actions";
-import { updateAiProvider, updateAiKeys } from "./actions";
+import { updateAiProvider, updateAiKeys, updateClaudeModel } from "./actions";
+import { CLAUDE_MODELS, normalizeClaudeModel } from "@/lib/ai/claude-models";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -13,7 +14,7 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser();
   const { data: settings } = await supabase
     .from("user_settings")
-    .select("ai_provider, gemini_api_key, anthropic_api_key")
+    .select("ai_provider, claude_model, gemini_api_key, anthropic_api_key")
     .maybeSingle();
 
   const keyHint = (key: string | null | undefined, envName: string) =>
@@ -58,6 +59,27 @@ export default async function SettingsPage() {
           <SubmitButton size="sm">
             Salva
           </SubmitButton>
+        </form>
+        <form action={updateClaudeModel} className="mt-6">
+          <Field
+            label="Modello Claude"
+            htmlFor="claude_model"
+            hint="Usato quando il provider è Claude. Prezzi indicativi in $ per milione di token (input / output)."
+          >
+            <Select
+              key={normalizeClaudeModel(settings?.claude_model)}
+              id="claude_model"
+              name="claude_model"
+              defaultValue={normalizeClaudeModel(settings?.claude_model)}
+            >
+              {CLAUDE_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label} · {m.price}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <SubmitButton size="sm">Salva modello</SubmitButton>
         </form>
       </Card>
 

@@ -4,6 +4,7 @@ import { getMentionableEntities } from "@/lib/db/mentionable";
 import type {
   Session,
   SessionNote,
+  SessionAiMessage,
   SessionKeyPoint,
   SessionLink,
   SessionLinkEntityType,
@@ -12,6 +13,9 @@ import type {
 } from "@/lib/db/types";
 import { Badge } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
+import { ResizableColumns } from "@/components/ui/resizable-columns";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { deleteSession } from "../actions";
 import { SESSION_STATUS_LABELS } from "@/lib/constants";
 import { SessionDetailsForm } from "./session-details-form";
 import { SessionLinksForm, type LocationFolder, type PickableItem } from "./session-links-form";
@@ -53,6 +57,7 @@ export default async function SessionDetailPage({
     { data: factions },
     { data: items },
     { data: settings },
+    { data: aiMessages },
     mentionable,
   ] = await Promise.all([
     supabase.from("sessions").select("*").eq("id", sessionId).single<Session>(),
@@ -110,6 +115,12 @@ export default async function SessionDetailPage({
       .eq("campaign_id", campaignId)
       .order("name"),
     supabase.from("user_settings").select("ai_provider").maybeSingle(),
+    supabase
+      .from("session_ai_messages")
+      .select("role, content")
+      .eq("session_id", sessionId)
+      .order("created_at")
+      .returns<Pick<SessionAiMessage, "role" | "content">[]>(),
     getMentionableEntities(supabase, campaignId),
   ]);
 
@@ -236,6 +247,14 @@ export default async function SessionDetailPage({
             </Badge>
           </div>
         </div>
+        <form action={deleteSession.bind(null, campaignId, sessionId)}>
+          <ConfirmSubmitButton
+            size="sm"
+            confirmMessage={`Eliminare la sessione "${session.title}"? L'azione non è reversibile.`}
+          >
+            Elimina sessione
+          </ConfirmSubmitButton>
+        </form>
       </div>
 
       <details className="mb-6 rounded-xl border border-border bg-surface">
@@ -261,7 +280,7 @@ export default async function SessionDetailPage({
           mentionable={mentionable}
         />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-start">
+        <ResizableColumns>
           <div className="min-w-0">
             <Tabs
               tabs={[
@@ -337,11 +356,12 @@ export default async function SessionDetailPage({
             />
           </div>
 
-          <div className="space-y-6 lg:sticky lg:top-6">
+          <div className="space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
             <AiAssistantPanel
               campaignId={campaignId}
               sessionId={sessionId}
               aiProvider={(settings?.ai_provider as AiProvider) ?? "gemini"}
+              initialMessages={(aiMessages ?? []).map((m) => ({ role: m.role, text: m.content }))}
             />
             <div className="rounded-xl border border-border bg-surface p-5">
               <h3 className="mb-3 font-mono text-[11px] uppercase tracking-wide text-text-muted">
@@ -350,7 +370,7 @@ export default async function SessionDetailPage({
               <NotesPanel campaignId={campaignId} sessionId={sessionId} notes={notes ?? []} />
             </div>
           </div>
-        </div>
+        </ResizableColumns>
       )}
     </div>
   );

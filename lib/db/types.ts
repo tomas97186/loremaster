@@ -148,6 +148,14 @@ export interface SessionNote {
   created_at: string;
 }
 
+export interface SessionAiMessage {
+  id: string;
+  session_id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
 export interface SessionKeyPoint {
   id: string;
   session_id: string;
@@ -186,4 +194,5 @@ export interface QuestLink {
 export interface UserSettings extends Timestamped {
   user_id: string;
   ai_provider: AiProvider;
+  claude_model: string | null;
 }

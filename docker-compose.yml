@@ -18,6 +18,7 @@ services:
 
   app:
     build: .
+    image: ghcr.io/tomas97186/loremaster:latest
     restart: unless-stopped
     depends_on:
       db:

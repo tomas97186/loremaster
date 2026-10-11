@@ -1,9 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { updateSessionDetails, deleteSession } from "../actions";
+import { updateSessionDetails } from "../actions";
 import { Field, Input, Select } from "@/components/ui/field";
-import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { AutosaveIndicator } from "@/components/ui/autosave-indicator";
 import { useAutosave } from "@/lib/hooks/use-autosave";
 import { SESSION_STATUS_LABELS } from "@/lib/constants";
@@ -73,15 +72,6 @@ export function SessionDetailsForm({
         <div className="flex items-end sm:col-span-2 sm:justify-end">
           <AutosaveIndicator status={status} />
         </div>
-      </form>
-
-      <form action={deleteSession.bind(null, campaignId, session.id)} className="flex justify-end">
-        <ConfirmSubmitButton
-          size="sm"
-          confirmMessage={`Eliminare la sessione "${session.title}"? L'azione non è reversibile.`}
-        >
-          Elimina sessione
-        </ConfirmSubmitButton>
       </form>
     </div>
   );

@@ -26,6 +26,7 @@ const TABLE_SCOPE: Record<string, Scope> = {
   encounters: "campaign",
   session_notes: "session",
   session_key_points: "session",
+  session_ai_messages: "session",
 };
 
 const CONFLICT_KEY: Record<string, string> = { user_settings: "user_id" };

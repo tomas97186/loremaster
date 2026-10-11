@@ -2,7 +2,7 @@ import type { AiProvider } from "@/lib/db/types";
 import type { AiMessage, AiTool, AiResult } from "./types";
 import { generateWithGemini } from "./providers/gemini";
 import { generateWithClaude } from "./providers/claude";
-import { resolveAiKey } from "./keys";
+import { resolveAiKey, resolveClaudeModel } from "./keys";
 
 export type { AiMessage, AiTool, AiResult } from "./types";
 export { AiConfigError } from "./types";
@@ -22,7 +22,8 @@ export async function askAssistant(
 ): Promise<AiResult> {
   const apiKey = await resolveAiKey(provider);
   if (provider === "claude") {
-    return generateWithClaude(apiKey, systemPrompt, messages, tools, forceToolName);
+    const model = await resolveClaudeModel();
+    return generateWithClaude(apiKey, model, systemPrompt, messages, tools, forceToolName);
   }
   return generateWithGemini(apiKey, systemPrompt, messages, tools, forceToolName);
 }

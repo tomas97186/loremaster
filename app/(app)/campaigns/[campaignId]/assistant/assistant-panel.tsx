@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
 import { MarkdownMessage } from "@/components/ai/markdown-message";
 import type { AiMessage } from "@/lib/ai/gateway";
+import { AI_PROVIDER_LABELS } from "@/lib/ai/provider-options";
 import type { AiProvider } from "@/lib/db/types";
 import type { MentionableEntity } from "@/lib/richtext";
 
@@ -28,12 +29,13 @@ const ENTITY_LABEL_IT: Record<DraftProposal["entityType"], string> = {
 export function AssistantPanel({
   campaignId,
   mentionable,
-  aiProvider,
+  aiProvider: defaultProvider,
 }: {
   campaignId: string;
   mentionable: MentionableEntity[];
   aiProvider: AiProvider;
 }) {
+  const [provider, setProvider] = useState<AiProvider>(defaultProvider);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function AssistantPanel({
     setMessages(nextMessages);
 
     startTransition(async () => {
-      const result = await askCampaignAssistant(campaignId, historyFor(nextMessages));
+      const result = await askCampaignAssistant(campaignId, historyFor(nextMessages), provider);
       if (result.error) {
         setError(result.error);
         return;
@@ -72,10 +74,21 @@ export function AssistantPanel({
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
-      <p className="mb-3 font-mono text-[11px] uppercase tracking-wide text-text-muted">
-        Provider attivo: {aiProvider === "claude" ? "Claude API" : "Gemini (free tier)"} — conosce
-        tutti i dati della campagna
-      </p>
+      <div className="mb-3"><label className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-text-muted">
+          Modello
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as AiProvider)}
+            disabled={pending}
+            className="rounded-md border border-border bg-surface px-2 py-1 text-xs normal-case tracking-normal text-text"
+          >
+            {(Object.keys(AI_PROVIDER_LABELS) as AiProvider[]).map((value) => (
+              <option key={value} value={value}>
+                {AI_PROVIDER_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </label></div>
 
       <div className="mb-4 flex max-h-[32rem] flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (

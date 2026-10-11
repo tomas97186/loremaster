@@ -1,17 +1,22 @@
 import { AiConfigError, type AiMessage, type AiTool, type AiResult } from "../types";
 
-// Modello economico, adatto a un uso personale leggero. Cambialo qui se
-// preferisci più qualità a fronte di un costo maggiore.
-const MODEL = "claude-haiku-4-5-20251001";
-
 export async function generateWithClaude(
   apiKey: string | undefined,
+  model: string,
   systemPrompt: string,
   messages: AiMessage[],
   tools?: AiTool[],
   forceToolName?: string,
 ): Promise<AiResult> {
   if (!apiKey) throw new AiConfigError("claude");
+
+  // I modelli 5.x non accettano di forzare uno strumento (tool_choice "tool"):
+  // va richiesto a parole, altrimenti il modello può rispondere a testo.
+  const system = forceToolName
+    ? `${systemPrompt}
+
+Rispondi usando esclusivamente lo strumento ${forceToolName}.`
+    : systemPrompt;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -21,9 +26,10 @@ export async function generateWithClaude(
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
+      model,
+      // Margine per il ragionamento dei modelli 5.x, che conta nei token di output.
+      max_tokens: 8192,
+      system,
       messages: messages.map((m) => ({ role: m.role, content: m.text })),
       ...(tools && tools.length > 0
         ? {
@@ -32,7 +38,7 @@ export async function generateWithClaude(
               description: t.description,
               input_schema: t.parameters,
             })),
-            tool_choice: forceToolName ? { type: "tool", name: forceToolName } : { type: "auto" },
+            tool_choice: { type: "auto" },
           }
         : {}),
     }),

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/db/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { resolveProvider } from "@/lib/ai/provider-options";
 import { askAssistant, type AiMessage, type AiTool } from "@/lib/ai/gateway";
 import type { AiProvider, SessionLinkEntityType } from "@/lib/db/types";
 import { isEmptyHtml, stripHtml, textToHtml } from "@/lib/richtext";
@@ -249,15 +250,32 @@ export async function generateSessionPrep(
 ): Promise<{ prepNotes?: string; error?: string }> {
   const supabase = await createClient();
 
-  const [{ data: session }, { data: settings }, { data: links }] = await Promise.all([
+  const [{ data: session }, { data: settings }, { data: links }, { data: recentSessions }] = await Promise.all([
     supabase.from("sessions").select("title, prep_notes").eq("id", sessionId).single(),
     supabase.from("user_settings").select("ai_provider").maybeSingle(),
     supabase
       .from("session_links")
       .select("entity_type, entity_id")
       .eq("session_id", sessionId),
+    supabase
+      .from("sessions")
+      .select("title, session_number, summary")
+      .eq("campaign_id", campaignId)
+      .neq("id", sessionId)
+      .order("session_number", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
   if (!session) return { error: "Sessione non trovata." };
+
+  const previousSummaryLines = (recentSessions ?? [])
+    .map((s) => {
+      const summary = stripHtml(s.summary);
+      if (!summary) return null;
+      return `- ${s.session_number ? `#${s.session_number} ` : ""}${s.title}: ${summary}`;
+    })
+    .filter((line): line is string => Boolean(line))
+    .slice(0, 2);
 
   const idsByType = new Map<SessionLinkEntityType, string[]>();
   for (const link of links ?? []) {
@@ -328,6 +346,9 @@ export async function generateSessionPrep(
 
   const systemPrompt = [
     "Sei l'assistente del Dungeon Master. Il DM sta preparando una sessione di gioco di ruolo e ti chiede di generarne i contenuti usando lo strumento write_session_prep: note di preparazione, punti chiave da ricordare, ed eventuali combattimenti.",
+    previousSummaryLines.length
+      ? `Resoconto delle sessioni precedenti (dalla più recente): la nuova sessione deve proseguire da qui, in continuità con quanto accaduto.\n${previousSummaryLines.join("\n")}`
+      : null,
     contextLines ? `Elementi già collegati a questa sessione:\n${contextLines}` : null,
     "Sii concreto e specifico, coerente col contesto fornito. Non inventare dettagli platealmente in conflitto con quanto fornito. Rispondi sempre in italiano.",
   ]
@@ -441,6 +462,17 @@ export async function updateSessionSummary(
     .eq("id", sessionId);
   if (error) throw new Error(error.message);
 
+  // Con un resoconto scritto la sessione è stata giocata: da "pianificata" passa a "completata".
+  if (!isEmptyHtml(String(formData.get("summary") ?? ""))) {
+    const { error: statusError } = await supabase
+      .from("sessions")
+      .update({ status: "completed" })
+      .eq("id", sessionId)
+      .eq("status", "planned");
+    if (statusError) throw new Error(statusError.message);
+  }
+
+  revalidatePath(`/campaigns/${campaignId}/sessions`);
   revalidatePath(`/campaigns/${campaignId}/sessions/${sessionId}`);
 }
 
@@ -609,6 +641,7 @@ export async function askSessionAssistant(
   campaignId: string,
   sessionId: string,
   messages: AiMessage[],
+  providerOverride?: AiProvider,
 ): Promise<{ answer?: string; error?: string }> {
   const supabase = await createClient();
 
@@ -712,9 +745,24 @@ export async function askSessionAssistant(
     .join("\n");
 
   try {
-    const provider: AiProvider = (settings?.ai_provider as AiProvider) ?? "gemini";
+    const provider = resolveProvider(providerOverride, settings?.ai_provider);
     const result = await askAssistant(provider, systemPrompt, messages);
-    return { answer: result.type === "text" ? result.text : "" };
+    const answer = result.type === "text" ? result.text : "";
+
+    // Salva lo scambio solo a risposta ottenuta, così la cronologia resta coerente.
+    const lastUser = messages[messages.length - 1];
+    if (lastUser?.role === "user") {
+      await supabase.from("session_ai_messages").insert([
+        { session_id: sessionId, role: "user", content: lastUser.text, created_at: new Date().toISOString() },
+        {
+          session_id: sessionId,
+          role: "assistant",
+          content: answer,
+          created_at: new Date(Date.now() + 1).toISOString(),
+        },
+      ]);
+    }
+    return { answer };
   } catch (err) {
     return {
       error:
@@ -723,6 +771,13 @@ export async function askSessionAssistant(
           : "Errore imprevisto nella chiamata all'assistente AI.",
     };
   }
+}
+
+export async function clearSessionAssistantChat(campaignId: string, sessionId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("session_ai_messages").delete().eq("session_id", sessionId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/campaigns/${campaignId}/sessions/${sessionId}`);
 }
 
 export async function generateSessionSummary(

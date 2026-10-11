@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/db/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { normalizeClaudeModel } from "@/lib/ai/claude-models";
 
 export async function updateAiProvider(formData: FormData) {
   const provider = String(formData.get("ai_provider") ?? "gemini");
@@ -17,6 +18,21 @@ export async function updateAiProvider(formData: FormData) {
     user_id: user.id,
     ai_provider: provider === "claude" ? "claude" : "gemini",
   });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings");
+}
+
+export async function updateClaudeModel(formData: FormData) {
+  const model = normalizeClaudeModel(String(formData.get("claude_model") ?? ""));
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error } = await supabase.from("user_settings").upsert({ user_id: user.id, claude_model: model });
   if (error) throw new Error(error.message);
 
   revalidatePath("/settings");

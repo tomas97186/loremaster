@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/db/client";
+import { resolveProvider } from "@/lib/ai/provider-options";
 import { askAssistant, type AiMessage } from "@/lib/ai/gateway";
 import { buildCampaignContext } from "@/lib/ai/context";
 import { CAMPAIGN_ASSISTANT_TOOLS } from "@/lib/ai/tools";
@@ -139,6 +140,7 @@ function buildDraft(
 export async function askCampaignAssistant(
   campaignId: string,
   messages: AiMessage[],
+  providerOverride?: AiProvider,
 ): Promise<AskCampaignAssistantResult> {
   const supabase = await createClient();
 
@@ -160,7 +162,7 @@ export async function askCampaignAssistant(
   ].join("\n");
 
   try {
-    const provider: AiProvider = (settings?.ai_provider as AiProvider) ?? "gemini";
+    const provider = resolveProvider(providerOverride, settings?.ai_provider);
     const result = await askAssistant(provider, systemPrompt, messages, CAMPAIGN_ASSISTANT_TOOLS);
 
     if (result.type === "tool_call") {
